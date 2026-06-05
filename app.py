@@ -5,7 +5,6 @@ import re
 import os
 from playwright.async_api import async_playwright
 
-# NUOVA API KEY
 API_KEY = os.environ.get("BROWSER_USE_API_KEY", "bu_Fk49iTm7o4hfnTYAM_Qh_7ovxObscyZe1Y10s3VluxA")
 
 async def main():
@@ -20,7 +19,7 @@ async def main():
     subprocess.run("browser-use close --all", shell=True)
     time.sleep(2)
     
-    # 2. Connetti al cloud e cattura CDP URL
+    # 2. Connetti al cloud
     print("\n2. Connecting to cloud...")
     result = subprocess.run("browser-use cloud connect", shell=True, capture_output=True, text=True)
     print(result.stdout)
@@ -34,21 +33,37 @@ async def main():
     cdp_url = cdp_match.group(1)
     print(f"✅ CDP URL: {cdp_url}")
     
-    # 3. Connetti Playwright
+    # 3. Connetti Playwright e ottieni TUTTE le pagine
     print("\n3. Connecting Playwright...")
     async with async_playwright() as p:
         pw_browser = await p.chromium.connect_over_cdp(cdp_url)
         
-        if pw_browser.contexts and pw_browser.contexts[0].pages:
-            page = pw_browser.contexts[0].pages[0]
-        else:
+        # Ottieni tutte le pagine aperte
+        all_pages = []
+        for context in pw_browser.contexts:
+            all_pages.extend(context.pages)
+        
+        print(f"📄 Pagine trovate: {len(all_pages)}")
+        
+        if not all_pages:
+            print("❌ Nessuna pagina trovata, ne creo una nuova...")
             context = await pw_browser.new_context()
             page = await context.new_page()
+        else:
+            # Usa la prima pagina disponibile
+            page = all_pages[0]
+            print(f"📍 Usando pagina: {page.url}")
         
-        # 4. Login usando CLI
+        # 4. Login usando CLI (sulla pagina corrente)
         print("\n4. Logging in...")
         
-        # Compila form via CLI
+        # Assicurati di essere sulla pagina giusta
+        if "easyhits4u" not in page.url:
+            print("🌐 Navigando a login page...")
+            await page.goto("https://www.easyhits4u.com/logon/")
+            await page.wait_for_timeout(3000)
+        
+        # Compila form via CLI (funziona sulla pagina attiva)
         subprocess.run('browser-use type "sandrominori50+ulugarecexisa@gmail.com"', shell=True)
         time.sleep(1)
         subprocess.run('browser-use keys "Tab"', shell=True)
@@ -75,7 +90,7 @@ async def main():
                 user_id = cookie['value']
                 print(f"✅ user_id = {user_id}")
         
-        print(f"📍 URL: {page.url}")
+        print(f"📍 URL finale: {page.url}")
         await pw_browser.close()
     
     # 6. Cleanup
