@@ -1,73 +1,42 @@
 import asyncio
-import json
 import os
-from browser_use import Browser
+from browser_use import Browser, BrowserSession
 
 API_KEY = os.environ.get("BROWSER_USE_API_KEY", "bu_kGrN4LoTG5wF85mSno8d_xFCbMOO2jM7bRWtu2RP_Ks")
 
-async def get_session_cookies():
-    print("🚀 EasyHits4U Cookie Service (Browser Use Cloud)")
-    
-    # Imposta la API key come variabile d'ambiente
+async def get_cookies():
     os.environ["BROWSER_USE_API_KEY"] = API_KEY
     
-    # Crea il browser con use_cloud=True (la API key si prende dall'ambiente)
     browser = Browser(use_cloud=True, headless=True)
     
     try:
-        page = await browser.get_page()
+        # Avvia il browser e ottieni la sessione
+        await browser.start()
         
-        print("🌐 Opening login page...")
+        # Ottieni la pagina tramite la sessione
+        session = await browser.get_browser_session()
+        page = await session.must_get_current_page()
+        
+        # Login
         await page.goto("https://www.easyhits4u.com/logon/")
         await page.wait_for_timeout(3000)
-        
-        print("📝 Filling form...")
         await page.fill('input[name="username"]', "sandrominori50+ulugarecexisa@gmail.com")
         await page.fill('input[name="password"]', "DDnmVV45!!")
-        
-        print("🔑 Submitting login...")
         await page.click('button.btn_green')
-        
-        print("⏳ Waiting for redirect...")
         await page.wait_for_timeout(15000)
         
-        print("\n🍪 Extracting cookies...")
+        # Prendi cookie
         context = page.context
         all_cookies = await context.cookies()
         
-        sesids = None
-        user_id = None
-        
         for cookie in all_cookies:
-            if cookie['name'] == 'sesids':
-                sesids = cookie['value']
-                print(f"✅ sesids = {sesids}")
-            if cookie['name'] == 'user_id':
-                user_id = cookie['value']
-                print(f"✅ user_id = {user_id}")
+            if cookie['name'] in ['sesids', 'user_id']:
+                print(f"{cookie['name']} = {cookie['value']}")
         
-        with open("/tmp/cookies.json", "w") as f:
-            json.dump(all_cookies, f, indent=2)
+        return all_cookies
         
-        return sesids, user_id
-        
-    except Exception as e:
-        print(f"❌ Error: {e}")
-        return None, None
     finally:
-        await browser.close()
-
-async def main():
-    print("=" * 50)
-    sesids, user_id = await get_session_cookies()
-    print("=" * 50)
-    if sesids and user_id:
-        print(f"🎉 SUCCESS!")
-        print(f"   sesids = {sesids}")
-        print(f"   user_id = {user_id}")
-    else:
-        print("❌ FAILED")
-    print("=" * 50)
+        await browser.stop()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(get_cookies())
