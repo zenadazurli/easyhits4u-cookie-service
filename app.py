@@ -1,109 +1,87 @@
 import asyncio
-import subprocess
-import time
-import re
-import os
+from browser_use_sdk.v3 import AsyncBrowserUse
 from playwright.async_api import async_playwright
+import os
 
 API_KEY = os.environ.get("BROWSER_USE_API_KEY", "bu_Fk49iTm7o4hfnTYAM_Qh_7ovxObscyZe1Y10s3VluxA")
 
 async def main():
     print("=" * 50)
     print("EasyHits4U Cookie Service")
-    print("CLI + Playwright Context")
+    print("Browser Use SDK v3 + Playwright")
     print("=" * 50)
     
-    # 1. Configura CLI
-    print("\n1. Configuring CLI...")
-    subprocess.run(f"browser-use config set api_key {API_KEY}", shell=True)
-    subprocess.run("browser-use close --all", shell=True)
-    time.sleep(2)
+    # Crea client con API key
+    client = AsyncBrowserUse(api_key=API_KEY)
     
-    # 2. Connetti al cloud
-    print("\n2. Connecting to cloud...")
-    result = subprocess.run("browser-use cloud connect", shell=True, capture_output=True, text=True)
-    print(result.stdout)
-    
-    # Estrai CDP URL
-    cdp_match = re.search(r'cdp_url:\s*(wss://[^\s]+)', result.stdout)
-    if not cdp_match:
-        print("❌ CDP URL not found")
-        return
-    
-    cdp_url = cdp_match.group(1)
-    print(f"✅ CDP URL: {cdp_url}")
-    
-    # 3. Connetti Playwright e ottieni TUTTE le pagine
-    print("\n3. Connecting Playwright...")
-    async with async_playwright() as p:
-        pw_browser = await p.chromium.connect_over_cdp(cdp_url)
+    try:
+        # Crea browser cloud
+        print("\n🔌 Creating cloud browser...")
+        browser = await client.browsers.create()
+        print(f"✅ Browser ID: {browser.id}")
+        print(f"🔗 CDP URL: {browser.cdp_url}")
         
-        # Ottieni tutte le pagine aperte
-        all_pages = []
-        for context in pw_browser.contexts:
-            all_pages.extend(context.pages)
-        
-        print(f"📄 Pagine trovate: {len(all_pages)}")
-        
-        if not all_pages:
-            print("❌ Nessuna pagina trovata, ne creo una nuova...")
-            context = await pw_browser.new_context()
-            page = await context.new_page()
-        else:
-            # Usa la prima pagina disponibile
-            page = all_pages[0]
-            print(f"📍 Usando pagina: {page.url}")
-        
-        # 4. Login usando CLI (sulla pagina corrente)
-        print("\n4. Logging in...")
-        
-        # Assicurati di essere sulla pagina giusta
-        if "easyhits4u" not in page.url:
-            print("🌐 Navigando a login page...")
+        # Connetti Playwright al browser cloud
+        print("\n🔗 Connecting Playwright...")
+        async with async_playwright() as p:
+            pw_browser = await p.chromium.connect_over_cdp(browser.cdp_url)
+            
+            # Ottieni context e page
+            context = pw_browser.contexts[0]
+            page = context.pages[0]
+            
+            # Login su EasyHits4U
+            print("\n🌐 Logging in to EasyHits4U...")
             await page.goto("https://www.easyhits4u.com/logon/")
             await page.wait_for_timeout(3000)
+            
+            print("📝 Filling form...")
+            await page.fill('#username', "sandrominori50+ulugarecexisa@gmail.com")
+            await page.fill('#password', "DDnmVV45!!")
+            
+            print("🔑 Submitting...")
+            await page.click('button.btn_green')
+            
+            print("⏳ Waiting for redirect...")
+            await page.wait_for_load_state("networkidle")
+            await page.wait_for_timeout(5000)
+            
+            # Leggi TUTTI i cookie (inclusi HTTP-only!)
+            print("\n🍪 Extracting ALL cookies...")
+            all_cookies = await context.cookies()
+            
+            print(f"\n📊 Total cookies found: {len(all_cookies)}")
+            
+            sesids = None
+            user_id = None
+            
+            for cookie in all_cookies:
+                print(f"   {cookie['name']} = {cookie['value'][:30]}...")
+                if cookie['name'] == 'sesids':
+                    sesids = cookie['value']
+                if cookie['name'] == 'user_id':
+                    user_id = cookie['value']
+            
+            print(f"\n📍 Final URL: {page.url}")
+            
+            await pw_browser.close()
         
-        # Compila form via CLI (funziona sulla pagina attiva)
-        subprocess.run('browser-use type "sandrominori50+ulugarecexisa@gmail.com"', shell=True)
-        time.sleep(1)
-        subprocess.run('browser-use keys "Tab"', shell=True)
-        time.sleep(1)
-        subprocess.run('browser-use type "DDnmVV45!!"', shell=True)
-        time.sleep(1)
-        subprocess.run('browser-use keys "Enter"', shell=True)
+        print("\n" + "=" * 50)
+        if sesids and user_id:
+            print("🎉🎉🎉 SUCCESSO! 🎉🎉🎉")
+            print(f"   sesids = {sesids}")
+            print(f"   user_id = {user_id}")
+        else:
+            print("❌ Cookie non trovati")
+        print("=" * 50)
         
-        print("⏳ Waiting for login...")
-        time.sleep(20)
-        
-        # 5. Prendi cookie dal context Playwright
-        print("\n5. Extracting cookies...")
-        all_cookies = await page.context.cookies()
-        
-        sesids = None
-        user_id = None
-        
-        for cookie in all_cookies:
-            if cookie['name'] == 'sesids':
-                sesids = cookie['value']
-                print(f"✅ sesids = {sesids}")
-            if cookie['name'] == 'user_id':
-                user_id = cookie['value']
-                print(f"✅ user_id = {user_id}")
-        
-        print(f"📍 URL finale: {page.url}")
-        await pw_browser.close()
-    
-    # 6. Cleanup
-    subprocess.run("browser-use close --all", shell=True)
-    
-    print("\n" + "=" * 50)
-    if sesids and user_id:
-        print(f"🎉 SUCCESSO!")
-        print(f"   sesids = {sesids}")
-        print(f"   user_id = {user_id}")
-    else:
-        print("❌ Cookie non trovati")
-    print("=" * 50)
+    except Exception as e:
+        print(f"❌ Errore: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        if 'browser' in locals():
+            await client.browsers.stop(browser.id)
 
 if __name__ == "__main__":
     asyncio.run(main())
