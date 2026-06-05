@@ -5,36 +5,37 @@ import re
 import os
 from playwright.async_api import async_playwright
 
-API_KEY = os.environ.get("BROWSER_USE_API_KEY", "bu_Jbd6H_zrIUrqic91x0B1z9ZiVilvxm5ixMJWirBiWz4")
+# NUOVA API KEY
+API_KEY = os.environ.get("BROWSER_USE_API_KEY", "bu_Fk49iTm7o4hfnTYAM_Qh_7ovxObscyZe1Y10s3VluxA")
 
-async def get_cookies_from_cli_session():
+async def main():
     print("=" * 50)
     print("EasyHits4U Cookie Service")
     print("CLI + Playwright Context")
     print("=" * 50)
     
     # 1. Configura CLI
+    print("\n1. Configuring CLI...")
     subprocess.run(f"browser-use config set api_key {API_KEY}", shell=True)
     subprocess.run("browser-use close --all", shell=True)
     time.sleep(2)
     
-    # 2. Connetti al cloud e ottieni il CDP URL
-    print("🔌 Connecting to cloud...")
+    # 2. Connetti al cloud e cattura CDP URL
+    print("\n2. Connecting to cloud...")
     result = subprocess.run("browser-use cloud connect", shell=True, capture_output=True, text=True)
     print(result.stdout)
-    time.sleep(5)
     
-    # Estrai CDP URL dall'output
+    # Estrai CDP URL
     cdp_match = re.search(r'cdp_url:\s*(wss://[^\s]+)', result.stdout)
     if not cdp_match:
         print("❌ CDP URL not found")
-        return None, None
+        return
     
     cdp_url = cdp_match.group(1)
-    print(f"🔗 CDP URL: {cdp_url}")
+    print(f"✅ CDP URL: {cdp_url}")
     
-    # 3. Connetti Playwright alla stessa sessione
-    print("🔗 Connecting Playwright...")
+    # 3. Connetti Playwright
+    print("\n3. Connecting Playwright...")
     async with async_playwright() as p:
         pw_browser = await p.chromium.connect_over_cdp(cdp_url)
         
@@ -44,24 +45,23 @@ async def get_cookies_from_cli_session():
             context = await pw_browser.new_context()
             page = await context.new_page()
         
-        # 4. Login tramite CLI (già fatto, ma verifichiamo)
-        print("🌐 Checking page...")
-        await page.wait_for_timeout(5000)
+        # 4. Login usando CLI
+        print("\n4. Logging in...")
         
-        # Se non siamo sulla pagina giusta, naviga
-        if "logon" in page.url:
-            print("📝 Filling form via CLI...")
-            subprocess.run('browser-use type "sandrominori50+ulugarecexisa@gmail.com"', shell=True)
-            time.sleep(1)
-            subprocess.run('browser-use keys "Tab"', shell=True)
-            time.sleep(1)
-            subprocess.run('browser-use type "DDnmVV45!!"', shell=True)
-            time.sleep(1)
-            subprocess.run('browser-use keys "Enter"', shell=True)
-            time.sleep(20)
+        # Compila form via CLI
+        subprocess.run('browser-use type "sandrominori50+ulugarecexisa@gmail.com"', shell=True)
+        time.sleep(1)
+        subprocess.run('browser-use keys "Tab"', shell=True)
+        time.sleep(1)
+        subprocess.run('browser-use type "DDnmVV45!!"', shell=True)
+        time.sleep(1)
+        subprocess.run('browser-use keys "Enter"', shell=True)
         
-        # 5. Prendi i cookie dal context Playwright
-        print("\n🍪 Extracting cookies...")
+        print("⏳ Waiting for login...")
+        time.sleep(20)
+        
+        # 5. Prendi cookie dal context Playwright
+        print("\n5. Extracting cookies...")
         all_cookies = await page.context.cookies()
         
         sesids = None
@@ -81,10 +81,6 @@ async def get_cookies_from_cli_session():
     # 6. Cleanup
     subprocess.run("browser-use close --all", shell=True)
     
-    return sesids, user_id
-
-if __name__ == "__main__":
-    sesids, user_id = asyncio.run(get_cookies_from_cli_session())
     print("\n" + "=" * 50)
     if sesids and user_id:
         print(f"🎉 SUCCESSO!")
@@ -93,3 +89,6 @@ if __name__ == "__main__":
     else:
         print("❌ Cookie non trovati")
     print("=" * 50)
+
+if __name__ == "__main__":
+    asyncio.run(main())
