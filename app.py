@@ -5,34 +5,6 @@ from playwright.async_api import async_playwright
 
 API_KEY = os.environ.get("BROWSER_USE_API_KEY", "bu_Jbd6H_zrIUrqic91x0B1z9ZiVilvxm5ixMJWirBiWz4")
 
-async def wait_for_turnstile_complete(page, timeout=60):
-    """Aspetta che Turnstile sia completato (quadratino verde/spuntato)"""
-    print("⏳ Attesa completamento Turnstile...")
-    
-    for i in range(timeout):
-        # Controlla se il token cf-turnstile-response è presente
-        token = await page.evaluate('''
-            () => {
-                const input = document.querySelector('[name="cf-turnstile-response"]');
-                return input ? input.value : null;
-            }
-        ''')
-        
-        if token and len(token) > 10:
-            print(f"✅ Turnstile completato dopo {i+1} secondi!")
-            return True
-        
-        # Controlla anche se il widget è scomparso
-        widget = await page.locator('.cf-turnstile').count()
-        if widget == 0:
-            print(f"✅ Widget Turnstile scomparso dopo {i+1} secondi!")
-            return True
-        
-        await asyncio.sleep(1)
-    
-    print("⚠️ Timeout Turnstile, procedo comunque...")
-    return False
-
 async def main():
     print("=" * 50)
     print("EasyHits4U Cookie Service")
@@ -59,19 +31,14 @@ async def main():
             # Vai al login
             print("🌐 Opening login page...")
             await page.goto("https://www.easyhits4u.com/logon/")
-            
-            # === ATTESA CHE TURNSTILE SIA COMPLETATO ===
-            await wait_for_turnstile_complete(page)
-            
-            # Attesa extra per sicurezza
-            await page.wait_for_timeout(3000)
+            await page.wait_for_timeout(5000)
             
             # Compila form
             print("📝 Filling form...")
             await page.fill('input[name="username"]', "sandrominori50+ulugarecexisa@gmail.com")
             await page.fill('input[name="password"]', "DDnmVV45!!")
             
-            # Premi Enter (non click sul bottone)
+            # === METODO 1: Enter (non richiede click) ===
             print("🔑 Pressing Enter...")
             await page.keyboard.press('Enter')
             
@@ -94,6 +61,10 @@ async def main():
                     user_id = cookie['value']
                     print(f"✅ user_id = {user_id}")
             
+            # Verifica URL
+            current_url = page.url
+            print(f"📍 URL: {current_url}")
+            
             await pw_browser.close()
         
         print("\n" + "=" * 50)
@@ -107,6 +78,8 @@ async def main():
         
     except Exception as e:
         print(f"❌ Errore: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
         if 'browser' in locals():
             await client.browsers.stop(browser.id)
