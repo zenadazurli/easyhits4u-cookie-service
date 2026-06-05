@@ -2,22 +2,16 @@ import asyncio
 import json
 import os
 from browser_use import Browser
-import subprocess
 
 API_KEY = os.environ.get("BROWSER_USE_API_KEY", "bu_kGrN4LoTG5wF85mSno8d_xFCbMOO2jM7bRWtu2RP_Ks")
 
-def setup_api_key():
-    """Configura l'API key per Browser Use CLI"""
-    subprocess.run(f"browser-use config set api_key {API_KEY}", shell=True)
-    print("✅ API key configurata")
-
 async def get_session_cookies():
-    print("🚀 EasyHits4U Cookie Service")
+    print("🚀 EasyHits4U Cookie Service (Browser Use Cloud)")
     
-    # Configura API key prima di tutto
-    setup_api_key()
+    # Imposta la API key come variabile d'ambiente
+    os.environ["BROWSER_USE_API_KEY"] = API_KEY
     
-    # Usa Browser senza passare api_key nel costruttore
+    # Crea il browser con use_cloud=True (la API key si prende dall'ambiente)
     browser = Browser(use_cloud=True, headless=True)
     
     try:
@@ -72,7 +66,7 @@ async def main():
         print(f"   sesids = {sesids}")
         print(f"   user_id = {user_id}")
     else:
-        print("❌ FAILED - Cookies not found")
+        print("❌ FAILED")
     print("=" * 50)
 
 if __name__ == "__main__":
