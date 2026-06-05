@@ -5,50 +5,37 @@ import os
 
 API_KEY = os.environ.get("BROWSER_USE_API_KEY", "bu_Fk49iTm7o4hfnTYAM_Qh_7ovxObscyZe1Y10s3VluxA")
 
-async def wait_for_turnstile_complete(page, timeout=60):
-    """Aspetta che Turnstile sia completamente risolto"""
-    print("⏳ Waiting for Turnstile to complete...")
+async def wait_for_turnstile_token(page, timeout=60):
+    """Aspetta che Turnstile generi il token cf-turnstile-response"""
+    print("⏳ Waiting for Turnstile token...")
     
     for i in range(timeout):
-        # Controlla se il token cf-turnstile-response è presente e non vuoto
+        # Legge il token dall'input hidden
         token = await page.evaluate('''
             () => {
-                const input = document.querySelector('[name="cf-turnstile-response"]');
+                const input = document.querySelector('input[name="cf-turnstile-response"]');
                 return input ? input.value : null;
             }
         ''')
         
         if token and len(token) > 10:
-            print(f"✅ Turnstile completed after {i+1} seconds!")
-            return True
+            print(f"✅ Turnstile token obtained after {i+1} seconds!")
+            print(f"   Token preview: {token[:50]}...")
+            return token
         
-        # Controlla anche se il widget è scomparso
-        widget = await page.locator('.cf-turnstile').count()
-        if widget == 0:
-            print(f"✅ Turnstile widget disappeared after {i+1} seconds!")
-            return True
+        # Mostra progresso ogni 10 secondi
+        if i > 0 and i % 10 == 0:
+            print(f"   Still waiting... {i}s")
         
         await asyncio.sleep(1)
     
-    print("⚠️ Turnstile timeout, proceeding anyway...")
-    return False
-
-async def close_modals(page):
-    """Chiude modali React"""
-    await page.evaluate('''
-        () => {
-            const overlays = document.querySelectorAll('.ReactModal__Overlay');
-            overlays.forEach(overlay => overlay.style.display = 'none');
-            const portals = document.querySelectorAll('.ReactModalPortal');
-            portals.forEach(portal => portal.style.display = 'none');
-        }
-    ''')
-    await page.wait_for_timeout(500)
+    print("⚠️ Turnstile token not obtained within timeout")
+    return None
 
 async def main():
     print("=" * 50)
     print("EasyHits4U Cookie Service")
-    print("Wait for Turnstile before Enter")
+    print("Wait for Turnstile Token, then Enter")
     print("=" * 50)
     
     client = AsyncBrowserUse(api_key=API_KEY)
@@ -65,30 +52,45 @@ async def main():
             print("\n🌐 Opening login page...")
             await page.goto("https://www.easyhits4u.com/logon/")
             
-            # 1. ASPETTA CHE TURNSTILE SIA COMPLETATO
-            await wait_for_turnstile_complete(page)
-            
-            # 2. Chiudi modali
-            await close_modals(page)
-            
-            # 3. Compila form
+            # Compila il form PRIMA di Turnstile?
             print("📝 Filling form...")
             await page.fill('#username', "sandrominori50+ulugarecexisa@gmail.com")
             await page.fill('#password', "DDnmVV45!!")
             
-            # 4. Piccola attesa prima di Enter
-            await page.wait_for_timeout(1000)
+            # ASPETTA IL TOKEN TURNSTILE
+            token = await wait_for_turnstile_token(page)
             
-            # 5. Premi Enter (ora Turnstile è risolto)
+            if token:
+                # Opzionale: possiamo anche usare il token per verificare
+                print(f"🔐 Turnstile resolved with token: {token[:30]}...")
+            
+            # PICCOLA ATTESA EXTRA PER SICUREZZA
+            await page.wait_for_timeout(2000)
+            
+            # Ora premi Enter (Turnstile è risolto)
             print("🔑 Pressing Enter...")
-            await page.keyboard.press('Enter')
             
-            # 6. Attesa redirect
+            # Prova diversi metodi
+            try:
+                # Metodo 1: Enter
+                await page.keyboard.press('Enter')
+                print("   Used Enter key")
+            except Exception as e:
+                print(f"   Enter failed: {e}")
+                try:
+                    # Metodo 2: Click sul bottone
+                    await page.click('button.btn_green', force=True)
+                    print("   Used forced click")
+                except:
+                    # Metodo 3: JavaScript
+                    await page.evaluate('document.querySelector("button.btn_green").click()')
+                    print("   Used JavaScript click")
+            
             print("⏳ Waiting for redirect...")
             await page.wait_for_load_state("networkidle")
             await page.wait_for_timeout(10000)
             
-            # 7. Leggi cookie
+            # Leggi cookie
             print("\n🍪 Extracting cookies...")
             all_cookies = await context.cookies()
             
