@@ -30,20 +30,19 @@ async def main():
             await page.goto("https://www.easyhits4u.com/logon/")
             await page.wait_for_timeout(5000)
             
-            # === USA SELECTORI PIÙ PRECISI ===
+            # Compila form
             print("📝 Filling form...")
-            
-            # Usa ID invece di name (più preciso)
             await page.fill('#username', "sandrominori50+ulugarecexisa@gmail.com")
             await page.fill('#password', "DDnmVV45!!")
             
-            # Aspetta che il bottone sia realmente cliccabile
-            print("🔑 Waiting for button...")
-            await page.wait_for_selector('button.btn_green:not([disabled])', timeout=10000)
+            # === FOCUS SUL CAMPO PASSWORD PRIMA DI ENTER ===
+            print("🔑 Focus on password field...")
+            await page.focus('#password')
+            await page.wait_for_timeout(500)
             
-            # Click con JavaScript (bypassa overlay)
-            print("🔑 Clicking login...")
-            await page.evaluate('document.querySelector("button.btn_green").click()')
+            # Premi Enter SUL CAMPO CORRETTO
+            print("🔑 Pressing Enter...")
+            await page.keyboard.press('Enter')
             
             # Attesa redirect
             print("⏳ Waiting for redirect...")
@@ -82,6 +81,8 @@ async def main():
         
     except Exception as e:
         print(f"❌ Errore: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
     asyncio.run(main())
