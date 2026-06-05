@@ -13,12 +13,9 @@ async def main():
     client = AsyncBrowserUse(api_key=API_KEY)
     
     try:
-        # Crea browser cloud
         print("🔌 Creating cloud browser...")
         browser = await client.browsers.create()
-        print(f"✅ Browser created: {browser.id}")
         
-        # Connetti Playwright
         async with async_playwright() as p:
             pw_browser = await p.chromium.connect_over_cdp(browser.cdp_url)
             
@@ -33,14 +30,20 @@ async def main():
             await page.goto("https://www.easyhits4u.com/logon/")
             await page.wait_for_timeout(5000)
             
-            # Compila form
+            # === USA SELECTORI PIÙ PRECISI ===
             print("📝 Filling form...")
-            await page.fill('input[name="username"]', "sandrominori50+ulugarecexisa@gmail.com")
-            await page.fill('input[name="password"]', "DDnmVV45!!")
             
-            # === METODO 1: Enter (non richiede click) ===
-            print("🔑 Pressing Enter...")
-            await page.keyboard.press('Enter')
+            # Usa ID invece di name (più preciso)
+            await page.fill('#username', "sandrominori50+ulugarecexisa@gmail.com")
+            await page.fill('#password', "DDnmVV45!!")
+            
+            # Aspetta che il bottone sia realmente cliccabile
+            print("🔑 Waiting for button...")
+            await page.wait_for_selector('button.btn_green:not([disabled])', timeout=10000)
+            
+            # Click con JavaScript (bypassa overlay)
+            print("🔑 Clicking login...")
+            await page.evaluate('document.querySelector("button.btn_green").click()')
             
             # Attesa redirect
             print("⏳ Waiting for redirect...")
@@ -61,11 +64,12 @@ async def main():
                     user_id = cookie['value']
                     print(f"✅ user_id = {user_id}")
             
-            # Verifica URL
             current_url = page.url
             print(f"📍 URL: {current_url}")
             
             await pw_browser.close()
+        
+        await client.browsers.stop(browser.id)
         
         print("\n" + "=" * 50)
         if sesids and user_id:
@@ -78,11 +82,6 @@ async def main():
         
     except Exception as e:
         print(f"❌ Errore: {e}")
-        import traceback
-        traceback.print_exc()
-    finally:
-        if 'browser' in locals():
-            await client.browsers.stop(browser.id)
 
 if __name__ == "__main__":
     asyncio.run(main())
